@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(sfc-planner)
+project(sfc_planner)
 
-add_compile_options(-std=c++17)
+add_compile_options(-std=c++14)
 
 ## Find catkin and system dependencies
 find_package(catkin REQUIRED COMPONENTS
@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   mavros_msgs
   tracking_controller
 )
+find_package(Eigen3 REQUIRED)
+
 
 ## Declare catkin package
 catkin_package(
@@ -31,6 +33,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Node executable

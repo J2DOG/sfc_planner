@@ -7,12 +7,14 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/include/gcopter/**",
-                "/opt/homebrew/include/eigen3"
+                "/opt/ros/noetic/include/**",
+                "/usr/include/eigen3",
+                "/home/jtodog/catkin_ws/devel/include/**"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang",
+            "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
-            "cppStandard": "c++14",
+            "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-arm64"
         }
     ],
