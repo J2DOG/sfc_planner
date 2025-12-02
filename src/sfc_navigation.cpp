@@ -1,5 +1,13 @@
 // sfc_naviigation is a whole task class and ros node for navigation using SFC-based planner
 # include <ros/ros.h>
+#include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/State.h>
+#include <Eigen/Dense>
+#include <thread>
 
 #include "gcopter/trajectory.hpp"
 #include "gcopter/gcopter.hpp"
@@ -7,18 +15,7 @@
 #include "gcopter/flatness.hpp"
 #include "gcopter/voxel_map.hpp"
 #include "gcopter/sfc_gen.hpp"
-
 #include "utils/utils.h"
-
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <mavros_msgs/CommandBool.h>
-#include <mavros_msgs/SetMode.h>
-#include <mavros_msgs/State.h>
-
-#include <Eigen/Dense>
-#include <thread>
 
 // Configuration
 struct Config

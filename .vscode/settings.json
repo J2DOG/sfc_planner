@@ -1,8 +1,8 @@
-{
-    "C_Cpp.errorSquiggles": "disabled",
-    "files.associations": {
-        "vector": "cpp",
-        "dense": "cpp",
-        "__node_handle": "cpp"
-    }
-}
+// {
+//     "C_Cpp.errorSquiggles": "disabled",
+//     "files.associations": {
+//         "vector": "cpp",
+//         "dense": "cpp",
+//         "__node_handle": "cpp"
+//     }
+// }
