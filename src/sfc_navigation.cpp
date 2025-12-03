@@ -101,6 +101,7 @@ class SFCNavigation
     bool stateUpdateFirstTime_ = true;
     bool waitForGoal_ = false;
     bool holdingPosition_ = false;
+    bool stateControl_ = false;
 
     // Subcriber callback functions
     void mapCB(const sensor_msgs::PointCloud2::ConstPtr &msg)
@@ -201,7 +202,7 @@ class SFCNavigation
     void publishTarget()
     {
         /*
-        isolated thread to publish target state
+        isolated thread to publish target. FIXME: should switch to acceleration control.
         */
         ros::Rate r200 (200);
 		// warmup
@@ -212,16 +213,6 @@ class SFCNavigation
             poseTgt_.pose.position.z = currPos_(2);
             posePub_.publish(poseTgt_); // position control to warm up
         }
-        // initial update stateTgt_
-        tracking_controller::Target psT;
-		psT.type_mask = tracking_controller::Target::IGNORE_ACC_VEL;
-		psT.header.frame_id = "map";
-		psT.header.stamp = ros::Time::now();
-		psT.position.x = currPos_(0);
-		psT.position.y = currPos_(1);
-		psT.position.z = currPos_(2);
-		psT.yaw = AutoFlight::rpy_from_quaternion(odom_.pose.pose.orientation);
-		updateTargetWithState(psT);
 
         // vehicle mode and arm commands
         mavros_msgs::SetMode offboardMode;
@@ -246,10 +237,15 @@ class SFCNavigation
                     lastRequest = ros::Time::now();
                 }
             }
-            // position control
-            posePub_.publish(poseTgt_);
             // state control
-			// statePub_.publish(stateTgt_);
+            if (stateControl_)
+            {
+                statePub_.publish(stateTgt_);
+            } 
+            else
+            {
+                posePub_.publish(poseTgt_);
+            }
 			r200.sleep();
 		}	
     }
@@ -306,7 +302,6 @@ class SFCNavigation
 
 
     void takeoff(){
-
         // wait for map initialization
         ROS_INFO("[sfc_Nav]:takeoff is waiting for map initialization...");
         ros::Rate r5 (5);
@@ -334,6 +329,7 @@ class SFCNavigation
 		updateTargetWithState(psT);
 
         ROS_INFO("[sfc_Nav]:Start taking off to height %.2f m.", config_.DesHeight);
+        stateControl_ = false; // position control to take off
         ros::Rate r30 (30);
 		while (ros::ok() && std::abs(odom_.pose.pose.position.z - config_.DesHeight) >= 0.05){
             std::cout << "\r[sfc_Nav]: Current Height: " 
@@ -357,33 +353,7 @@ class SFCNavigation
         ROS_INFO("[sfc_Nav]:Takeoff success.");
     }
 
-    void holdPosition(){
-        ROS_INFO("[sfc_Nav]:Holding position.");
-        holdingPosition_ = true;
-        ros::Rate r30 (30);
-        tracking_controller::Target psT;
-		psT.type_mask = tracking_controller::Target::IGNORE_ACC_VEL;
-		psT.header.frame_id = "map";
-		psT.header.stamp = ros::Time::now();
-		psT.position.x = odom_.pose.pose.position.x;
-		psT.position.y = odom_.pose.pose.position.y;
-		psT.position.z = config_.DesHeight;
-		psT.yaw = AutoFlight::rpy_from_quaternion(odom_.pose.pose.orientation);
-		updateTargetWithState(psT);
-        while (ros::ok() && holdingPosition_){
-            std::cout << "\r[sfc_Nav]: Current Height: " 
-            << std::fixed << std::setprecision(2) 
-            << odom_.pose.pose.position.z << " (m)"
-            << std::flush;
-            ros::spinOnce();
-            r30.sleep();
-        }
-        std::cout << std::endl;
-        ROS_INFO("[sfc_Nav]:Stop holding position.");
-    }
-};
 
-    
 
 int main(int argc, char **argv)
 {
