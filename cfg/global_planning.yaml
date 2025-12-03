@@ -6,7 +6,7 @@ odom_topic:    "/mavros/local_position/odom"
 
 # Mapping parameters
 voxel_width:   0.5
-map_bound: [-25.0, 25.0, -25.0, 25.0, 0.0, 5.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
+map_bound: [-5.0, 5.0, -5.0, 5.0, 0.0, 5.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
 dilate_radius: 1.0
 
 # Vehicle physical parameters
