@@ -20,6 +20,8 @@
 #include "gcopter/sfc_gen.hpp"
 #include "utils/utils.h"
 
+#include "visualizer/visualizer.hpp"
+
 // Configuration
 struct Config
     {
@@ -93,6 +95,8 @@ class SFCNavigation
     Eigen::Vector3d currAcc_;
     ros::Time prevStateTime_;
 
+    Visualizer visualizer_;
+
 
 
     bool mapInitialized_ = false;
@@ -140,13 +144,13 @@ class SFCNavigation
                 if (voxelMap_.query(target) == 0)
                 {
                     Goal_ = target;
-                    ROS_INFO("[sfc_Nav]:New target received: (%.2f, %.2f, %.2f).", Goal_(0), Goal_(1), Goal_(2));
+                    ROS_INFO("[sfc_Nav]:New target accepted: (%.2f, %.2f, %.2f).", Goal_(0), Goal_(1), Goal_(2));
                     waitForGoal_ = false;
-                    //plan(); // TODO: implement plan function
+                    plan(); 
                 }
                 else
                 {
-                    ROS_WARN("[sfc_Nav]:Target in occupied voxel, please choose another target.");
+                    ROS_WARN("[sfc_Nav]:Target is occupied, please choose another target.");
                 }
             }
             else
@@ -154,6 +158,9 @@ class SFCNavigation
                 ROS_WARN("[sfc_Nav]:Previous target not reached yet.");
             }
             
+        }
+        else{
+            ROS_WARN("[sfc_Nav]:Map has not been initialized yet.");
         }
         return;
     }
@@ -256,13 +263,86 @@ class SFCNavigation
         poseTgt_.header.frame_id = "map";
     }
 
-    void updateTargetWithState(const tracking_controller::Target& state){
+    void updateTargetWithState(const tracking_controller::Target& state)
+    {
 		stateTgt_ = state;
 	}
 
+    void plan()
+    {
+        std::vector<Eigen::Vector3d> route;
+        Eigen::Vector3d start = currPos_;
+        Eigen::Vector3d goal = Goal_;
+        double timeout = 0.01;
+        double cost;
+        // plan path
+        cost = sfc_gen::planPath<voxel_map::VoxelMap>(start,
+                                                goal,
+                                                voxelMap_.getOrigin(),
+                                                voxelMap_.getCorner(),
+                                                &voxelMap_, timeout,
+                                                route);
+        if (cost == INFINITY)
+        {
+            ROS_WARN("[sfc_Nav]:Failed to plan path.");
+            return;
+            waitForGoal_ = true;
+        }
+        std::vector<Eigen::MatrixX4d> hPolys;
+        std::vector<Eigen::Vector3d> pc;
+        // get surface point cloud
+        voxelMap.getSurf(pc);
+        sfc_gen::convexCover(route,
+                                pc,
+                                voxelMap_.getOrigin(),
+                                voxelMap_.getCorner(),
+                                7.0, // progress
+                                3.0, // range
+                                hPolys);
+        sfc_gen::shortCut(hPolys);
+        if (route.size() > 1)
+        {
+            visualizer.visualizePolytope(hPolys);
+            Eigen::Matrix3d iniState;
+            Eigen::Matrix3d finState;
+            iniState << route.front(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(); // position, velocity, acceleration
+            finState << route.back(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero();
+            gcopter::GCOPTER_PolytopeSFC gcopter;
+            Eigen::VectorXd magnitudeBounds(5);
+            Eigen::VectorXd penaltyWeights(5);
+            Eigen::VectorXd physicalParams(6);
+            // set magnitude bounds
+            magnitudeBounds(0) = config_.maxVelMag; // max velocity
+            magnitudeBounds(1) = config_.maxBdrMag; // max body rate
+            magnitudeBounds(2) = config_.maxTiltAngle; // max tilt angle
+            magnitudeBounds(3) = config_.minThrust; // min thrust
+            magnitudeBounds(4) = config_.maxThrust; // max thrust
+            // set penalty weights
+            penaltyWeights(0) = (config_.chiVec)[0]; 
+            penaltyWeights(1) = (config_.chiVec)[1];
+            penaltyWeights(2) = (config_.chiVec)[2];
+            penaltyWeights(3) = (config_.chiVec)[3];
+            penaltyWeights(4) = (config_.chiVec)[4];
+            // set physical parameters
+            physicalParams(0) = config_.vehicleMass; // vehicle mass
+            physicalParams(1) = config_.gravAcc; // gravitational acceleration
+            physicalParams(2) = config_.horizDrag; // horizontal drag
+            physicalParams(3) = config_.vertDrag; // vertical drag
+            physicalParams(4) = config_.parasDrag; // parasitic drag
+            physicalParams(5) = config_.speedEps; // speed epsilon
+            
+
+
+
+        }
+
+
+    }
+
     public:
     // constructor
-    SFCNavigation(const Config &conf, ros::NodeHandle &nh): config_(conf), nh_(nh)
+    SFCNavigation(const Config &conf, ros::NodeHandle &nh): 
+    config_(conf), nh_(nh), visualizer_(nh_)
     {
     // Initialize voxel map
     const Eigen::Vector3i xyz((config_.mapBound[1] - config_.mapBound[0]) / config_.voxelWidth,
@@ -350,7 +430,8 @@ class SFCNavigation
 			ros::spinOnce();
 			r30.sleep();
 		}
-        ROS_INFO("[sfc_Nav]:Takeoff success.");
+        ROS_INFO("[sfc_Nav]:Takeoff success, waiting for goal...");
+        waitForGoal_ = true;
     }
 
 
