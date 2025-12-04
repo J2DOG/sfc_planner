@@ -2,6 +2,8 @@
 
 `sfc_planner` is a ROS package for safe flight corridor (SFC) based global planning and navigation for a MAV. It takes a voxel map, generates SFCs and trajectories, and sends targets to a low‑level tracking controller.
 
+⚠️ **IMPORTANT:** This package is under frequent development and updates. Features and behaviors may change without notice. Use with caution and always check for the latest changes before deploying in production systems.
+
 ### 1. Dependencies and environment
 
 - **ROS**: ROS 1 (tested on melodic/noetic style catkin package layout)
