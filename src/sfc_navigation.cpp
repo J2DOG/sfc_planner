@@ -333,7 +333,7 @@ class SFCNavigation
         std::vector<Eigen::MatrixX4d> hPolys;
         std::vector<Eigen::Vector3d> pc;
         // get surface point cloud
-        voxelMap.getSurf(pc);
+        voxelMap_.getSurf(pc);
         sfc_gen::convexCover(route,
                                 pc,
                                 voxelMap_.getOrigin(),
@@ -373,7 +373,7 @@ class SFCNavigation
             physicalParams(3) = config_.vertDrag; // vertical drag
             physicalParams(4) = config_.parasDrag; // parasitic drag
             physicalParams(5) = config_.speedEps; // speed epsilon
-            const int quadratureRes = config.integralIntervs;
+            const int quadratureRes = config_.integralIntervs;
 
             traj_.clear();
 
@@ -401,58 +401,9 @@ class SFCNavigation
                     ROS_INFO("[sfc_Nav]: traj_ generate success!");
                 }
         }
-
-        void process()
-        {
-            Eigen::VectorXd physicalParams(6);
-            physicalParams(0) = config_.vehicleMass;
-            physicalParams(1) = config_.gravAcc;
-            physicalParams(2) = config_.horizDrag;
-            physicalParams(3) = config_.vertDrag;
-            physicalParams(4) = config_.parasDrag;
-            physicalParams(5) = config_.speedEps;
-            flatness::FlatnessMap flatmap;
-            flatmap.reset(physicalParams(0), physicalParams(1), physicalParams(2),
-                        physicalParams(3), physicalParams(4), physicalParams(5));
-            if (traj.getPieceNum() > 0 && trajReady_)
-            {
-                const double delta = ros::Time::now().toSec() - trajStamp; 
-                if (delta > 0.0 && delta < traj.getTotalDuration())
-                {
-                    flatmap.forward(traj_.getVel(delta),
-                                    traj_.getAcc(delta),
-                                    traj_.getJer(delta),
-                                    0.0, 0.0,
-                                    thr, quat, omg);
-                    Eigen::Vector3d pos = traj_.getPos(delta);
-                    Eigen::Vector3d vel = traj_.getVel(delta);
-                    Eigen::Vector3d acc = traj_.getAcc(delta);
-                    tracking_controller::Target stateTarget;
-                    stateTarget.header.frame_id = "map";
-                    stateTarget.header.stamp = ros::Time::now();
-                    stateTarget.position.x = pos(0);
-                    stateTarget.position.y = pos(1);
-                    stateTarget.position.z = pos(2);
-                    stateTarget.velocity.x = vel(0);
-                    stateTarget.velocity.y = vel(1);
-                    stateTarget.velocity.z = vel(2);
-                    stateTarget.acceleration.x = acc(0);
-                    stateTarget.acceleration.y = acc(1);
-                    stateTarget.acceleration.z = acc(2);
-                    stateTarget.yaw = DesYaw_; // Extract heading angle from quaternion representation of attitude
-                    updateTargetWithState(stateTarget);
-                }
-                else if (delta >= traj_.getTotalDuration())
-                {
-                    waitForGoal_ = true;
-                    trajReady_ = false;
-                    ROS_INFO("[sfc_Nav]:Traj finish.");
-                }
-            }
-        }
     }
-
     public:
+
     // constructor
     SFCNavigation(const Config &conf, ros::NodeHandle &nh): 
     config_(conf), nh_(nh), visualizer_(nh_)
@@ -493,9 +444,9 @@ class SFCNavigation
     // Vehicle state update timer
     stateUpdateTimer_ = nh_.createTimer(ros::Duration(0.033), &SFCNavigation::stateUpdateCB, this);
     }
-
-
-    void takeoff(){
+    // takeoff function
+    void takeoff()
+    {
         // wait for map initialization
         ROS_INFO("[sfc_Nav]:takeoff is waiting for map initialization...");
         ros::Rate r5 (5);
@@ -547,7 +498,57 @@ class SFCNavigation
         ROS_INFO("[sfc_Nav]:Takeoff success, waiting for goal...");
         waitForGoal_ = true;
     }
-}
+    
+    void process()
+    {
+        Eigen::VectorXd physicalParams(6);
+        physicalParams(0) = config_.vehicleMass;
+        physicalParams(1) = config_.gravAcc;
+        physicalParams(2) = config_.horizDrag;
+        physicalParams(3) = config_.vertDrag;
+        physicalParams(4) = config_.parasDrag;
+        physicalParams(5) = config_.speedEps;
+        flatness::FlatnessMap flatmap;
+        flatmap.reset(physicalParams(0), physicalParams(1), physicalParams(2),
+                    physicalParams(3), physicalParams(4), physicalParams(5));
+        if (traj_.getPieceNum() > 0 && trajReady_)
+        {
+            const double delta = ros::Time::now().toSec() - trajStamp_; 
+            if (delta > 0.0 && delta < traj_.getTotalDuration())
+            {
+                // flatmap.forward(traj_.getVel(delta),
+                //                 traj_.getAcc(delta),
+                //                 traj_.getJer(delta),
+                //                 0.0, 0.0,
+                //                 thr, quat, omg);
+                Eigen::Vector3d pos = traj_.getPos(delta);
+                Eigen::Vector3d vel = traj_.getVel(delta);
+                Eigen::Vector3d acc = traj_.getAcc(delta);
+                tracking_controller::Target stateTarget;
+                stateTarget.header.frame_id = "map";
+                stateTarget.header.stamp = ros::Time::now();
+                stateTarget.position.x = pos(0);
+                stateTarget.position.y = pos(1);
+                stateTarget.position.z = pos(2);
+                stateTarget.velocity.x = vel(0);
+                stateTarget.velocity.y = vel(1);
+                stateTarget.velocity.z = vel(2);
+                stateTarget.acceleration.x = acc(0);
+                stateTarget.acceleration.y = acc(1);
+                stateTarget.acceleration.z = acc(2);
+                stateTarget.yaw = DesYaw_; // Extract heading angle from quaternion representation of attitude
+                updateTargetWithState(stateTarget);
+            }
+            else if (delta >= traj_.getTotalDuration())
+            {
+                waitForGoal_ = true;
+                trajReady_ = false;
+                ROS_INFO("[sfc_Nav]:Traj finish.");
+            }
+        }
+    }
+    
+};
 
 
 
