@@ -181,6 +181,7 @@ namespace voxel_map
 
         inline void getSurf(std::vector<Eigen::Vector3d> &points) const
         {
+            // get point cloud
             points.reserve(surf.size());
             for (const Eigen::Vector3i &id : surf)
             {

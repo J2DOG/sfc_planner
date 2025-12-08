@@ -7,9 +7,7 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/include/gcopter/**",
-                "/opt/ros/noetic/include/**",
-                "/usr/include/eigen3",
-                "/home/jtodog/catkin_ws/devel/include/**"
+                "${workspaceFolder}/include/utils/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++",

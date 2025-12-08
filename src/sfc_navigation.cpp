@@ -33,6 +33,10 @@ struct Config
         double voxelWidth;
         std::vector<double> mapBound;
         double dilateRadius;
+        double DesHeight;
+
+
+        // planning parameters uesd by gcopter
         // vehicle parameters
         double vehicleMass;
         double gravAcc;
@@ -40,7 +44,23 @@ struct Config
         double vertDrag;
         double parasDrag;
         double speedEps;
-        double DesHeight;
+
+        double maxVelMag; // max velocity
+        double maxBdrMag; // max body rate
+        double maxTiltAngle; // max tilt angle
+        double minThrust; // min thrust
+        double maxThrust; // max thrust
+
+        std::vector<double> chiVec;
+        int integralIntervs;
+
+        double weightT;
+        double smoothingEps;
+        double relCostTol;
+
+        double trajStamp_;
+        
+        
 
         Config(const ros::NodeHandle &nh_priv)
         {
@@ -95,6 +115,9 @@ class SFCNavigation
     Eigen::Vector3d currAcc_;
     ros::Time prevStateTime_;
 
+    Trajectory<5> traj_;
+    double DesYaw_;
+
     Visualizer visualizer_;
 
 
@@ -106,6 +129,7 @@ class SFCNavigation
     bool waitForGoal_ = false;
     bool holdingPosition_ = false;
     bool stateControl_ = false;
+    bool trajReady_ = false;
 
     // Subcriber callback functions
     void mapCB(const sensor_msgs::PointCloud2::ConstPtr &msg)
@@ -308,6 +332,7 @@ class SFCNavigation
             iniState << route.front(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(); // position, velocity, acceleration
             finState << route.back(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero();
             gcopter::GCOPTER_PolytopeSFC gcopter;
+
             Eigen::VectorXd magnitudeBounds(5);
             Eigen::VectorXd penaltyWeights(5);
             Eigen::VectorXd physicalParams(6);
@@ -330,13 +355,83 @@ class SFCNavigation
             physicalParams(3) = config_.vertDrag; // vertical drag
             physicalParams(4) = config_.parasDrag; // parasitic drag
             physicalParams(5) = config_.speedEps; // speed epsilon
-            
+            const int quadratureRes = config.integralIntervs;
 
+            traj_.clear();
 
-
+            if (!gcopter.setup(config_.weightT,
+                iniState, finState,
+                hPolys, INFINITY,
+                config_.smoothingEps,
+                quadratureRes,
+                magnitudeBounds,
+                penaltyWeights,
+                physicalParams))
+                {
+                    ROS_WARN("[sfc_Nav]: GCOPTER setup failed!");
+                    return;
+                }
+                if (std::isinf(gcopter.optimize(traj_, config_.relCostTol)))
+                {
+                    return;
+                }
+                if (traj_.getPieceNum() > 0)
+                {
+                    trajStamp_ = ros::Time::now().toSec();
+                    visualizer.visualize(traj_, route);
+                    trajReady_ = true;
+                    ROS_INFO("[sfc_Nav]: traj_ generate success!");
+                }
         }
 
-
+        void process()
+        {
+            Eigen::VectorXd physicalParams(6);
+            physicalParams(0) = config_.vehicleMass;
+            physicalParams(1) = config_.gravAcc;
+            physicalParams(2) = config_.horizDrag;
+            physicalParams(3) = config_.vertDrag;
+            physicalParams(4) = config_.parasDrag;
+            physicalParams(5) = config_.speedEps;
+            flatness::FlatnessMap flatmap;
+            flatmap.reset(physicalParams(0), physicalParams(1), physicalParams(2),
+                        physicalParams(3), physicalParams(4), physicalParams(5));
+            if (traj.getPieceNum() > 0 && trajReady_)
+            {
+                const double delta = ros::Time::now().toSec() - trajStamp; 
+                if (delta > 0.0 && delta < traj.getTotalDuration())
+                {
+                    flatmap.forward(traj_.getVel(delta),
+                                    traj_.getAcc(delta),
+                                    traj_.getJer(delta),
+                                    0.0, 0.0,
+                                    thr, quat, omg);
+                    Eigen::Vector3d pos = traj_.getPos(delta);
+                    Eigen::Vector3d vel = traj_.getVel(delta);
+                    Eigen::Vector3d acc = traj_.getAcc(delta);
+                    tracking_controller::Target stateTarget;
+                    stateTarget.header.frame_id = "map";
+                    stateTarget.header.stamp = ros::Time::now();
+                    stateTarget.position.x = pos(0);
+                    stateTarget.position.y = pos(1);
+                    stateTarget.position.z = pos(2);
+                    stateTarget.velocity.x = vel(0);
+                    stateTarget.velocity.y = vel(1);
+                    stateTarget.velocity.z = vel(2);
+                    stateTarget.acceleration.x = acc(0);
+                    stateTarget.acceleration.y = acc(1);
+                    stateTarget.acceleration.z = acc(2);
+                    stateTarget.yaw = DesYaw_; // Extract heading angle from quaternion representation of attitude
+                    updateTargetWithState(stateTarget);
+                }
+                else if (delta >= traj_.getTotalDuration())
+                {
+                    waitForGoal_ = true;
+                    trajReady_ = false;
+                    ROS_INFO("[sfc_Nav]:Traj finish.");
+                }
+            }
+        }
     }
 
     public:
@@ -372,6 +467,7 @@ class SFCNavigation
         ros::spinOnce();
         r10.sleep();
     }
+    DesYaw_ = AutoFlight::rpy_from_quaternion(odom_.pose.pose.orientation);
     ROS_INFO("[sfc_Nav]:Odom and mavros state received.");
     // Tareget publish thread
     targetPubWorker_ = std::thread(&SFCNavigation::publishTarget, this);
@@ -398,15 +494,15 @@ class SFCNavigation
         ps.pose.orientation = odom_.pose.pose.orientation;
         updateTarget(ps); // position control target update
 
-        tracking_controller::Target psT;
-		psT.type_mask = tracking_controller::Target::IGNORE_ACC_VEL;
-		psT.header.frame_id = "map";
-		psT.header.stamp = ros::Time::now();
-		psT.position.x = odom_.pose.pose.position.x;
-		psT.position.y = odom_.pose.pose.position.y;
-		psT.position.z = config_.DesHeight;
-		psT.yaw = AutoFlight::rpy_from_quaternion(odom_.pose.pose.orientation);
-		updateTargetWithState(psT);
+        // tracking_controller::Target psT;
+		// psT.type_mask = tracking_controller::Target::IGNORE_ACC_VEL;
+		// psT.header.frame_id = "map";
+		// psT.header.stamp = ros::Time::now();
+		// psT.position.x = odom_.pose.pose.position.x;
+		// psT.position.y = odom_.pose.pose.position.y;
+		// psT.position.z = config_.DesHeight;
+		// psT.yaw = DesYaw_;
+		// updateTargetWithState(psT);
 
         ROS_INFO("[sfc_Nav]:Start taking off to height %.2f m.", config_.DesHeight);
         stateControl_ = false; // position control to take off
@@ -433,6 +529,7 @@ class SFCNavigation
         ROS_INFO("[sfc_Nav]:Takeoff success, waiting for goal...");
         waitForGoal_ = true;
     }
+}
 
 
 
@@ -449,6 +546,7 @@ int main(int argc, char **argv)
     ros::Rate lr(1000);
     while (ros::ok())
     {
+        sfc_navigation.process();
         ros::spinOnce();
         lr.sleep();
     }
