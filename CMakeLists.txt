@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   tracking_controller
 )
 find_package(Eigen3 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(OMPL REQUIRED ompl)
 
 
 ## Declare catkin package
@@ -34,6 +36,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
+  ${OMPL_INCLUDE_DIRS}
 )
 
 ## Node executable
@@ -50,4 +53,5 @@ add_dependencies(sfc_navigation_node
 ## Link libraries
 target_link_libraries(sfc_navigation_node
   ${catkin_LIBRARIES}
+  ${OMPL_LDFLAGS}
 )

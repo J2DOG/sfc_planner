@@ -312,6 +312,7 @@ class SFCNavigation
 
     void plan()
     {
+        
         std::vector<Eigen::Vector3d> route;
         Eigen::Vector3d start = currPos_;
         Eigen::Vector3d goal = Goal_;
@@ -327,8 +328,9 @@ class SFCNavigation
         if (cost == INFINITY)
         {
             ROS_WARN("[sfc_Nav]:Failed to plan path.");
-            return;
             waitForGoal_ = true;
+            return;
+            
         }
         std::vector<Eigen::MatrixX4d> hPolys;
         std::vector<Eigen::Vector3d> pc;
@@ -398,6 +400,7 @@ class SFCNavigation
                     trajStamp_ = ros::Time::now().toSec();
                     visualizer_.visualize(traj_, route);
                     trajReady_ = true;
+                    stateControl_ = true;
                     ROS_INFO("[sfc_Nav]: traj_ generate success!");
                 }
         }
@@ -538,6 +541,15 @@ class SFCNavigation
                 stateTarget.acceleration.z = acc(2);
                 stateTarget.yaw = DesYaw_; // Extract heading angle from quaternion representation of attitude
                 updateTargetWithState(stateTarget);
+                // Terminal visual
+                Eigen::Vector3d posErr;
+                posErr(0) = odom_.pose.pose.position.x - pos(0);
+                posErr(1) = odom_.pose.pose.position.y - pos(1);
+                posErr(2) = odom_.pose.pose.position.z - pos(2);
+                std::cout << "\r[sfc_Nav]: Current position error: " 
+                << std::fixed << std::setprecision(2)
+                << posErr.norm() << " (m)"
+                << std::flush;
             }
             else if (delta >= traj_.getTotalDuration())
             {
