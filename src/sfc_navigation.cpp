@@ -30,11 +30,13 @@ struct Config
         std::string targetTopic;
         std::string mavros_stateTopic;
         std::string odomTopic;
+
         double voxelWidth;
         std::vector<double> mapBound;
         double dilateRadius;
-        double DesHeight;
+        double desHeight;
 
+        double timeoutRRT;
 
         // planning parameters uesd by gcopter
         // vehicle parameters
@@ -57,8 +59,7 @@ struct Config
         double weightT;
         double smoothingEps;
         double relCostTol;
-
-        double trajStamp_;
+        
         
         
 
@@ -69,16 +70,32 @@ struct Config
             nh_priv.param<std::string>("target_topic", targetTopic, "/move_base_simple/goal");
             nh_priv.param<std::string>("mavros_state_topic", mavros_stateTopic, "/mavros/setpoint_position/local");
             nh_priv.param<std::string>("odom_topic", odomTopic, "/mavros/local_position/odom");
+
             nh_priv.param<double>("voxel_width", voxelWidth, 0.5);
             nh_priv.param<std::vector<double>>("map_bound", mapBound, std::vector<double>({-10.0, 10.0, -10.0, 10.0, 0.0, 5.0}));
             nh_priv.param<double>("dilate_radius", dilateRadius, 1.0);
+            nh_priv.param<double>("des_height", desHeight, 1.0);
+
+            nh_priv.param<double>("timeout_rrt", timeoutRRT, 0.1);
+
             nh_priv.param<double>("vehicle_mass", vehicleMass, 1.5);
             nh_priv.param<double>("grav_acc", gravAcc, 9.81);
             nh_priv.param<double>("horiz_drag", horizDrag, 0.1);
             nh_priv.param<double>("vert_drag", vertDrag, 0.2);
             nh_priv.param<double>("paras_drag", parasDrag, 0.01);
             nh_priv.param<double>("speed_eps", speedEps, 0.1);
-            nh_priv.param<double>("des_height", DesHeight, 1.0);
+
+            nh_priv.param<double>("max_vel_mag", maxVelMag, 5.0);
+            nh_priv.param<double>("max_bdr_mag", maxBdrMag, 3.0);
+            nh_priv.param<double>("max_tilt_angle", maxTiltAngle, 0.5);
+            nh_priv.param<double>("min_thrust", minThrust, 2.0);
+            nh_priv.param<double>("max_thrust", maxThrust, 15.0);  
+            nh_priv.param<std::vector<double>>("chi_vec", chiVec, std::vector<double>({1.0, 1.0, 1.0, 1.0, 1.0}));
+            nh_priv.param<int>("integral_intervs", integralIntervs, 10);
+            nh_priv.param<double>("weight_t", weightT, 1.0);
+            nh_priv.param<double>("smoothing_eps", smoothingEps, 1e-4);
+            nh_priv.param<double>("rel_cost_tol", relCostTol, 1e-3);
+            
         }
     };
 
@@ -116,6 +133,7 @@ class SFCNavigation
     ros::Time prevStateTime_;
 
     Trajectory<5> traj_;
+    double trajStamp_;
     double DesYaw_;
 
     Visualizer visualizer_;
@@ -163,7 +181,7 @@ class SFCNavigation
         {
             if (waitForGoal_)
             {
-                const double zGoal = config_.DesHeight; // desired height
+                const double zGoal = config_.desHeight; // desired height
                 Eigen::Vector3d target(msg->pose.position.x, msg->pose.position.y, zGoal);
                 if (voxelMap_.query(target) == 0)
                 {
@@ -326,7 +344,7 @@ class SFCNavigation
         sfc_gen::shortCut(hPolys);
         if (route.size() > 1)
         {
-            visualizer.visualizePolytope(hPolys);
+            visualizer_.visualizePolytope(hPolys);
             Eigen::Matrix3d iniState;
             Eigen::Matrix3d finState;
             iniState << route.front(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(); // position, velocity, acceleration
@@ -378,7 +396,7 @@ class SFCNavigation
                 if (traj_.getPieceNum() > 0)
                 {
                     trajStamp_ = ros::Time::now().toSec();
-                    visualizer.visualize(traj_, route);
+                    visualizer_.visualize(traj_, route);
                     trajReady_ = true;
                     ROS_INFO("[sfc_Nav]: traj_ generate success!");
                 }
@@ -490,7 +508,7 @@ class SFCNavigation
 		ps.header.stamp = ros::Time::now();
 		ps.pose.position.x = odom_.pose.pose.position.x;
 		ps.pose.position.y = odom_.pose.pose.position.y;
-        ps.pose.position.z = config_.DesHeight;
+        ps.pose.position.z = config_.desHeight;
         ps.pose.orientation = odom_.pose.pose.orientation;
         updateTarget(ps); // position control target update
 
@@ -500,14 +518,14 @@ class SFCNavigation
 		// psT.header.stamp = ros::Time::now();
 		// psT.position.x = odom_.pose.pose.position.x;
 		// psT.position.y = odom_.pose.pose.position.y;
-		// psT.position.z = config_.DesHeight;
+		// psT.position.z = config_.desHeight;
 		// psT.yaw = DesYaw_;
 		// updateTargetWithState(psT);
 
-        ROS_INFO("[sfc_Nav]:Start taking off to height %.2f m.", config_.DesHeight);
+        ROS_INFO("[sfc_Nav]:Start taking off to height %.2f m.", config_.desHeight);
         stateControl_ = false; // position control to take off
         ros::Rate r30 (30);
-		while (ros::ok() && std::abs(odom_.pose.pose.position.z - config_.DesHeight) >= 0.05){
+		while (ros::ok() && std::abs(odom_.pose.pose.position.z - config_.desHeight) >= 0.05){
             std::cout << "\r[sfc_Nav]: Current Height: " 
             << std::fixed << std::setprecision(2) 
             << odom_.pose.pose.position.z << " (m)"
