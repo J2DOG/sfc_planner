@@ -6,6 +6,7 @@ lib/
 msg_gen/
 srv_gen/
 .vscode/
+
 msg/*Action.msg
 msg/*ActionFeedback.msg
 msg/*ActionGoal.msg
