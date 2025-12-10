@@ -6,12 +6,17 @@ odom_topic:    "/mavros/local_position/odom"
 
 # Mapping parameters
 voxel_width:   0.5
-map_bound: [0.0, 100.0, -25, 25, 0.0, 10.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
+map_bound: [0.0, 20.0, -5, 5, 0.0, 10.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
 dilate_radius: 0.5
 # Flight settings
 des_height:    1.0
+# Planning parameters
+timeout_rrt:  0.1 # (s)
 
-timeout_rrt:  0.02
+
+
+# physicalParams = [vehicle_mass, gravitational_acceleration, horitonral_drag_coeff,
+#                   vertical_drag_coeff, parasitic_drag_coeff, speed_smooth_factor]^T
 
 # Vehicle physical parameters
 vehicle_mass:  0.61
@@ -19,17 +24,20 @@ grav_acc:      9.81
 horiz_drag:    0.70
 vert_drag:     0.80
 paras_drag:    0.01
-speed_eps:     0.0001
+speed_eps:     0.0001 # speed smoothing factor
 
-max_vel_mag: 4.0
-max_bdr_mag: 2.1
-max_tilt_angle: 1.05
-min_thrust: 2.0
-max_thrust: 12.0
+# magnitudeBounds = [v_max, omg_max, theta_max, thrust_min, thrust_max]^T
+max_vel_mag: 4.0 # maximum velocity magnitude (m/s)
+max_bdr_mag: 2.1 # maximum body rate magnitude (rad/s)
+max_tilt_angle: 1.05 # maximum tilt angle (rad)
+min_thrust: 2.0 # minimum thrust (N)
+max_thrust: 12.0 # maximum thrust (N)
 
+# penaltyWeights = [pos_weight, vel_weight, omg_weight, theta_weight, thrust_weight]^T
 chi_vec: [1.0e+4, 1.0e+4, 1.0e+4, 1.0e+4, 1.0e+5]
+
 integral_intervs: 16
-weight_t:  20.0
+weight_t:  20.0 # time weight
 smoothing_eps: 1.0e-2
 rel_cost_tol: 1.0e-5
 

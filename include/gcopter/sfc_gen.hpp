@@ -92,6 +92,7 @@ namespace sfc_gen
         auto planner(std::make_shared<ompl::geometric::InformedRRTstar>(si));
         planner->setProblemDefinition(pdef);
         planner->setup();
+        planner->setRange(0.1 * (hb - lb).norm());
 
         ompl::base::PlannerStatus solved;
         solved = planner->ompl::base::Planner::solve(timeout);

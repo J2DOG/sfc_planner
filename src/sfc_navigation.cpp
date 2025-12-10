@@ -546,10 +546,8 @@ class SFCNavigation
                 posErr(0) = odom_.pose.pose.position.x - pos(0);
                 posErr(1) = odom_.pose.pose.position.y - pos(1);
                 posErr(2) = odom_.pose.pose.position.z - pos(2);
-                std::cout << "\r[sfc_Nav]: Current position error: " 
-                << std::fixed << std::setprecision(2)
-                << posErr.norm() << " (m)"
-                << std::flush;
+                std::cout << "[sfc_Nav]: traj_time: " << std::fixed << std::setprecision(3) << delta << " s, "
+                << "Position error: " << posErr.norm() << " m" << std::endl;
             }
             else if (delta >= traj_.getTotalDuration())
             {
