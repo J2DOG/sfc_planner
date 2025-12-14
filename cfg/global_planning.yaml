@@ -5,11 +5,11 @@ mavros_state_topic:   "/mavros/state"
 odom_topic:    "/mavros/local_position/odom"
 
 # Mapping parameters
-voxel_width:   0.5
-map_bound: [0.0, 20.0, -5, 5, 0.0, 10.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
-dilate_radius: 0.5
+voxel_width:   0.25
+map_bound: [-10.0, 10.0, -10.0, 10.0, 0.0, 5.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
+dilate_radius: 1
 # Flight settings
-des_height:    1.0
+des_height:    1.0 # (m)
 # Planning parameters
 timeout_rrt:  0.1 # (s)
 
@@ -27,9 +27,9 @@ paras_drag:    0.01
 speed_eps:     0.0001 # speed smoothing factor
 
 # magnitudeBounds = [v_max, omg_max, theta_max, thrust_min, thrust_max]^T
-max_vel_mag: 4.0 # maximum velocity magnitude (m/s)
+max_vel_mag: 2.0 # maximum velocity magnitude (m/s)
 max_bdr_mag: 2.1 # maximum body rate magnitude (rad/s)
-max_tilt_angle: 1.05 # maximum tilt angle (rad)
+max_tilt_angle: 0.53 # maximum tilt angle (rad)
 min_thrust: 2.0 # minimum thrust (N)
 max_thrust: 12.0 # maximum thrust (N)
 

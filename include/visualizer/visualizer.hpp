@@ -59,7 +59,7 @@ public:
     // Visualize the trajectory and its front-end path
     template <int D>
     inline void visualize(const Trajectory<D> &traj,
-                          const std::vector<Eigen::Vector3d> &route)
+                            const std::vector<Eigen::Vector3d> &route)
     {
         visualization_msgs::Marker routeMarker, wayPointsMarker, trajMarker;
 
@@ -285,8 +285,8 @@ public:
     }
 
     inline void visualizeStartGoal(const Eigen::Vector3d &center,
-                                   const double &radius,
-                                   const int sg)
+                                    const double &radius,
+                                    const int sg)
     {
         visualization_msgs::Marker sphereMarkers, sphereDeleter;
 

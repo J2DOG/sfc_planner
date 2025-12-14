@@ -112,6 +112,7 @@ class SFCNavigation
 	ros::ServiceClient setModeClient_;
     ros::Publisher posePub_;
     ros::Publisher statePub_;
+    ros::Publisher history_pathPub_;
 
     ros::Timer stateUpdateTimer_;
 
@@ -120,6 +121,9 @@ class SFCNavigation
     voxel_map::VoxelMap voxelMap_;
     Eigen::Vector3d Goal_; // target position
     Eigen::Vector3d currPos_;
+    const size_t max_history_size_ = 100;
+    std::vector<geometry_msgs::PoseStamped> trajectory_history_;
+    nav_msgs::Path historyPath_;
 
     tracking_controller::Target stateTgt_;
     geometry_msgs::PoseStamped poseTgt_;   // position control target
@@ -246,12 +250,25 @@ class SFCNavigation
 			prevVel_ = currVel_; 
 			prevStateTime_ = currTime;
         }
+
+        // update the history traj
+        geometry_msgs::PoseStamped pose_stamped;
+        
+        pose_stamped.header = odom_.header;
+        pose_stamped.pose = odom_.pose.pose;
+        trajectory_history_.push_back(pose_stamped);
+        if (trajectory_history_.size() > max_history_size_) 
+        {
+            trajectory_history_.erase(trajectory_history_.begin());
+        }
+        // visual history path
+        PublishHistoryPath();
     }
 
     void publishTarget()
     {
         /*
-        isolated thread to publish target. FIXME: should switch to acceleration control.
+        isolated thread to publish target. 
         */
         ros::Rate r200 (200);
 		// warmup
@@ -310,6 +327,15 @@ class SFCNavigation
 		stateTgt_ = state;
 	}
 
+    void PublishHistoryPath() {
+        if (trajectory_history_.empty()) return;
+        
+        historyPath_.header.frame_id = trajectory_history_.front().header.frame_id;
+        historyPath_.header.stamp = ros::Time::now();
+        historyPath_.poses = trajectory_history_; 
+        history_pathPub_.publish(historyPath_);
+    } 
+
     void plan()
     {
         
@@ -340,7 +366,7 @@ class SFCNavigation
                                 pc,
                                 voxelMap_.getOrigin(),
                                 voxelMap_.getCorner(),
-                                7.0, // progress
+                                5.0, // progress
                                 3.0, // range
                                 hPolys);
         sfc_gen::shortCut(hPolys);
@@ -429,7 +455,7 @@ class SFCNavigation
     // Publishers
     posePub_ = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 1000);
 	statePub_ = nh_.advertise<tracking_controller::Target>("/autonomous_flight/target_state", 1000);
-    
+    history_pathPub_ = nh_.advertise<nav_msgs::Path>("/visualizer/history_path", 10);
     // Wait for odometry and mavros to be ready
     odomReceived_ = false;
     mavrosStateReceived_ = false;
@@ -447,6 +473,7 @@ class SFCNavigation
     // Vehicle state update timer
     stateUpdateTimer_ = nh_.createTimer(ros::Duration(0.033), &SFCNavigation::stateUpdateCB, this);
     }
+
     // takeoff function
     void takeoff()
     {
