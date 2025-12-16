@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OMPL REQUIRED ompl)
-
+pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
 
 ## Declare catkin package
 catkin_package(
@@ -37,6 +37,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${OMPL_INCLUDE_DIRS}
+  ${YAMLCPP_INCLUDE_DIRS} # Include yaml-cpp headers
 )
 
 ## Node executable
@@ -54,4 +55,5 @@ add_dependencies(sfc_navigation_node
 target_link_libraries(sfc_navigation_node
   ${catkin_LIBRARIES}
   ${OMPL_LDFLAGS}
+  ${YAMLCPP_LIBRARIES} # Link yaml-cpp library
 )

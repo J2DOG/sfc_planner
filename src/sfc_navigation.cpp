@@ -18,6 +18,11 @@
 #include "gcopter/flatness.hpp"
 #include "gcopter/voxel_map.hpp"
 #include "gcopter/sfc_gen.hpp"
+
+#include "sfc_planner/mps_geo_utils.hpp"
+#include "sfc_planner/mps.hpp"
+#include "sfc_planner/mps_sfc_gen.hpp"
+
 #include "utils/utils.h"
 
 #include "visualizer/visualizer.hpp"
@@ -30,6 +35,7 @@ struct Config
         std::string targetTopic;
         std::string mavros_stateTopic;
         std::string odomTopic;
+        std::string obstaclePath;
 
         double voxelWidth;
         std::vector<double> mapBound;
@@ -70,6 +76,7 @@ struct Config
             nh_priv.param<std::string>("target_topic", targetTopic, "/move_base_simple/goal");
             nh_priv.param<std::string>("mavros_state_topic", mavros_stateTopic, "/mavros/setpoint_position/local");
             nh_priv.param<std::string>("odom_topic", odomTopic, "/mavros/local_position/odom");
+            nh_priv.param<std::string>("obstacle_path", obstaclePath, "/home/jtodog/catkin_ws/src/CERLAB-UAV-Autonomy/polys_mapgen/cfg/random_obstacles.yaml");
 
             nh_priv.param<double>("voxel_width", voxelWidth, 0.5);
             nh_priv.param<std::vector<double>>("map_bound", mapBound, std::vector<double>({-10.0, 10.0, -10.0, 10.0, 0.0, 5.0}));
@@ -119,6 +126,7 @@ class SFCNavigation
     std::thread targetPubWorker_;
 
     voxel_map::VoxelMap voxelMap_;
+    std::vector<Eigen::MatrixX4d> obstacles_;
     Eigen::Vector3d Goal_; // target position
     Eigen::Vector3d currPos_;
     const size_t max_history_size_ = 100;
@@ -345,7 +353,7 @@ class SFCNavigation
         double timeout = 0.01;
         double cost;
         // plan path
-        cost = sfc_gen::planPath<voxel_map::VoxelMap>(start,
+        cost = mps_sfc_gen::planPath<voxel_map::VoxelMap>(start,
                                                 goal,
                                                 voxelMap_.getOrigin(),
                                                 voxelMap_.getCorner(),
@@ -356,20 +364,42 @@ class SFCNavigation
             ROS_WARN("[sfc_Nav]:Failed to plan path.");
             waitForGoal_ = true;
             return;
-            
         }
-        std::vector<Eigen::MatrixX4d> hPolys;
-        std::vector<Eigen::Vector3d> pc;
-        // get surface point cloud
-        voxelMap_.getSurf(pc);
-        sfc_gen::convexCover(route,
-                                pc,
+        std::vector<Eigen::MatrixX4d> hPolys; //sfc
+
+        // std::vector<Eigen::Vector3d> pc;
+        // // get surface point cloud
+        // voxelMap_.getSurf(pc);
+        // sfc_gen::convexCover(route,
+        //                         pc,
+        //                         voxelMap_.getOrigin(),
+        //                         voxelMap_.getCorner(),
+        //                         5.0, // progress
+        //                         3.0, // range
+        //                         hPolys);
+        // sfc_gen::shortCut(hPolys);
+        Eigen::Matrix<double, 6, 4> meta_poly = Eigen::Matrix<double, 6, 4>::Zero();
+        meta_poly(0, 0) = 1.0;
+        meta_poly(1, 0) = -1.0;
+        meta_poly(2, 1) = 1.0;
+        meta_poly(3, 1) = -1.0;
+        meta_poly(4, 2) = 1.0;
+        meta_poly(5, 2) = -1.0;
+        meta_poly(0, 3) = -5.0;
+        meta_poly(1, 3) = -5.0;
+        meta_poly(2, 3) = -5.0;
+        meta_poly(3, 3) = -5.0;
+        meta_poly(4, 3) = -5.0;
+        meta_poly(5, 3) = -5.0;
+        const double d_min = 0.3;
+        ROS_INFO("[sfc_gen]: convexCovering...");
+        mps_sfc_gen::convexCover(route,
+                                obstacles_,
                                 voxelMap_.getOrigin(),
                                 voxelMap_.getCorner(),
-                                5.0, // progress
-                                3.0, // range
+                                meta_poly,
+                                d_min,
                                 hPolys);
-        sfc_gen::shortCut(hPolys);
         if (route.size() > 1)
         {
             visualizer_.visualizePolytope(hPolys);
@@ -443,7 +473,8 @@ class SFCNavigation
                             (config_.mapBound[5] - config_.mapBound[4]) / config_.voxelWidth);
     const Eigen::Vector3d offset(config_.mapBound[0], config_.mapBound[2], config_.mapBound[4]);
     voxelMap_ = voxel_map::VoxelMap(xyz, offset, config_.voxelWidth);
-
+    // load  obstacles in Hrep
+    obstacles_ = mps_geo_utils::loadObstaclesFromYAML(config_.obstaclePath);
     // Subcribers
     mapSub_ = nh_.subscribe(config_.mapTopic, 1, &SFCNavigation::mapCB, this, ros::TransportHints().tcpNoDelay());
     targetSub_ = nh_.subscribe(config_.targetTopic, 1, &SFCNavigation::targetCB, this, ros::TransportHints().tcpNoDelay());

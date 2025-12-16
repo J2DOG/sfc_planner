@@ -25,7 +25,6 @@
 #ifndef MPS_SFC_GEN_HPP
 #define MPS_SFC_GEN_HPP
 
-#include "geo_utils.hpp"
 #include "mps.hpp"
 
 #include <ompl/util/Console.h>
@@ -36,6 +35,7 @@
 #include <ompl/base/DiscreteMotionValidator.h>
 
 #include <deque>
+#include <ros/ros.h>
 #include <memory>
 #include <Eigen/Eigen>
 

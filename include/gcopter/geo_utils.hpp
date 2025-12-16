@@ -41,7 +41,7 @@ namespace geo_utils
     // Each row of hPoly is defined by h0, h1, h2, h3 as
     // h0*x + h1*y + h2*z + h3 <= 0
     inline bool findInterior(const Eigen::MatrixX4d &hPoly,
-                             Eigen::Vector3d &interior)
+                            Eigen::Vector3d &interior)
     {
         const int m = hPoly.rows();
 

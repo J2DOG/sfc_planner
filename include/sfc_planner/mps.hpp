@@ -2,50 +2,18 @@
 # define MPS_HPP
 
 # include <Eigen/Eigen>
+# include <iostream>
 # include <vector>
 
 namespace mps
 {
-
-    inline void scalePolytope(
-        Eigen::MatrixX4d &meta_polytope,  // current meta polytope in H-rep format
-        const double &d_min, 
-        const Eigen::Vector3d &p_current, 
-        const std::vector<Eigen::MatrixX4d> &obstacles,
-        const double tol = 1.0e-6)
-        {
-            Eigen::MatrixX3d A_c;
-            Eigen::VectorXd b_c;
-            Eigen::MatrixX3d Y_m = meta_polytope.leftCols<3>();
-            Eigen::VectorXd y_m = -meta_polytope.rightCols<1>();
-            double alpha_low = 0.0;
-            double alpha_high = 1.0;
-            double alpha_mid;
-            while (alpha_high - alpha_low > tol)
-            {
-                alpha_mid = (alpha_low + alpha_high) / 2.0;
-                A_c = Y_m;
-                b_c = alpha_mid * y_m + Y_m * (1.0 - alpha_mid) * p_current;
-                if (check_polytope_feasibility(A_c, b_c, obstacles, d_min))
-                {
-                    alpha_low = alpha_mid;
-                }
-                else
-                {
-                    alpha_high = alpha_mid;
-                }
-            }
-            meta_polytope.rightCols<1>() = alpha_low * y_m + Y_m * (1.0 - alpha_low) * p_current;
-        }
     // Check if the polytope is feasible for the given obstacles and minimum distance requirement
     inline bool check_polytope_feasibility(
-        const Eigen::MatrixX4d &polytope, // polytope in H-rep (Ax<=b) format: [A -b]
+        const Eigen::MatrixX3d A,
+        Eigen::VectorXd b, // polytope in H-rep (Ax<=b) format: [A -b]
         const std::vector<Eigen::MatrixX4d> &obstacles,
         const double &d_min) // minimum distance requirement
     {
-        // Extract set H-rep: A x <= b
-        Eigen::MatrixX3d A = polytope.leftCols<3>();
-        Eigen::VectorXd b = -polytope.col(3);
         int max_iter = 50;
         double tol = 1.0e-6;
         const int m_p = A.rows();
@@ -112,6 +80,38 @@ namespace mps
         } // end for all obstacles
         return true; // Safe from all obstacles
     }
-}
+
+
+    inline void scalePolytope(
+        Eigen::MatrixX4d &meta_polytope,  // current meta polytope in H-rep format
+        const double &d_min, 
+        const Eigen::Vector3d &p_current, 
+        const std::vector<Eigen::MatrixX4d> &obstacles,
+        const double tol = 1.0e-6)
+        {
+            Eigen::MatrixX3d A_c;
+            Eigen::VectorXd b_c;
+            Eigen::MatrixX3d Y_m = meta_polytope.leftCols<3>();
+            Eigen::VectorXd y_m = -meta_polytope.rightCols<1>();
+            double alpha_low = 0.0;
+            double alpha_high = 1.0;
+            double alpha_mid;
+            while (alpha_high - alpha_low > tol)
+            {
+                alpha_mid = (alpha_low + alpha_high) / 2.0;
+                A_c = Y_m;
+                b_c = alpha_mid * y_m + Y_m * (1.0 - alpha_mid) * p_current;
+                if (check_polytope_feasibility(A_c, b_c, obstacles, d_min))
+                {
+                    alpha_low = alpha_mid;
+                }
+                else
+                {
+                    alpha_high = alpha_mid;
+                }
+            }
+            meta_polytope.rightCols<1>() = alpha_low * y_m + Y_m * (1.0 - alpha_low) * p_current;
+        }
+} 
 
 # endif

@@ -4,6 +4,8 @@ target_topic:  "/move_base_simple/goal" # the clicked goal in RViz
 mavros_state_topic:   "/mavros/state" 
 odom_topic:    "/mavros/local_position/odom"
 
+obstacle_path: "/home/jtodog/catkin_ws/src/CERLAB-UAV-Autonomy/polys_mapgen/cfg/random_obstacles.yaml"
+
 # Mapping parameters
 voxel_width:   0.25
 map_bound: [-10.0, 10.0, -10.0, 10.0, 0.0, 5.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
