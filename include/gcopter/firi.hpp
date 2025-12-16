@@ -264,6 +264,17 @@ namespace firi
         return ret >= 0;
     }
 
+    // firi: Finds a separating convex polytope between two points a,b and a point cloud pc
+    // within a bounding polytope bd. Outputs supporting half-planes in hPoly.
+    // Inputs:
+    //  - bd: Mx4 matrix of bounding half-planes [n_x n_y n_z d] with n·x + d <= 0
+    //  - pc: 3xN point cloud (surface points of obstacles)
+    //  - a, b: endpoints to connect with a corridor
+    //  - iterations: max iterations for iterative refinement
+    //  - epsilon: tolerance for separating plane checks
+    // Output:
+    //  - hPoly: resulting half-planes of the convex corridor (rows: planes, cols: [n d])
+    // Returns true on success, false if a or b violates the bounding polytope.
     inline bool firi(const Eigen::MatrixX4d &bd,
                      const Eigen::Matrix3Xd &pc,
                      const Eigen::Vector3d &a,

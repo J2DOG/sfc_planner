@@ -432,12 +432,12 @@ namespace lbfgs
      *                          an error. A negative integer indicates an error.
      */
     inline int lbfgs_optimize(Eigen::VectorXd &x,
-                              double &f,
-                              lbfgs_evaluate_t proc_evaluate,
-                              lbfgs_stepbound_t proc_stepbound,
-                              lbfgs_progress_t proc_progress,
-                              void *instance,
-                              const lbfgs_parameter_t &param)
+                                double &f,
+                                lbfgs_evaluate_t proc_evaluate,
+                                lbfgs_stepbound_t proc_stepbound,
+                                lbfgs_progress_t proc_progress,
+                                void *instance,
+                                const lbfgs_parameter_t &param)
     {
         int ret, i, j, k, ls, end, bound;
         double step, step_min, step_max, fx, ys, yy;
@@ -476,12 +476,12 @@ namespace lbfgs
             return LBFGSERR_INVALID_MAXSTEP;
         }
         if (!(param.f_dec_coeff > 0.0 &&
-              param.f_dec_coeff < 1.0))
+                param.f_dec_coeff < 1.0))
         {
             return LBFGSERR_INVALID_FDECCOEFF;
         }
         if (!(param.s_curv_coeff < 1.0 &&
-              param.s_curv_coeff > param.f_dec_coeff))
+                param.s_curv_coeff > param.f_dec_coeff))
         {
             return LBFGSERR_INVALID_SCURVCOEFF;
         }
