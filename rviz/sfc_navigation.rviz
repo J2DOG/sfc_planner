@@ -6,9 +6,6 @@ Panels:
       Expanded:
         - /GlobalMap1/GlobalMap1
         - /GlobalMap1/GlobalMap1/Autocompute Value Bounds1
-        - /Traj1
-        - /History_Path1
-        - /Odometry1
         - /Odometry1/Shape1
       Splitter Ratio: 0.5472221970558167
     Tree Height: 865
@@ -126,51 +123,51 @@ Visualization Manager:
       Enabled: true
       Name: GlobalMap
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /visualizer/waypoints
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /visualizer/route
       Name: RRT_waypoints
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /visualizer/mesh
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /visualizer/edge
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /visualizer/spheres
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /visualizer/trajectory
       Name: Traj
       Namespaces:
-        trajectory: true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1

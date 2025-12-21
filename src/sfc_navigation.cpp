@@ -365,6 +365,9 @@ class SFCNavigation
             waitForGoal_ = true;
             return;
         }
+        else{
+            ROS_INFO("[sfc_Nav]: RRT Plan length: %ld.",route.size());
+        }
         std::vector<Eigen::MatrixX4d> hPolys; //sfc
 
         // std::vector<Eigen::Vector3d> pc;
@@ -385,13 +388,14 @@ class SFCNavigation
         meta_poly(3, 1) = -1.0;
         meta_poly(4, 2) = 1.0;
         meta_poly(5, 2) = -1.0;
-        meta_poly(0, 3) = -5.0;
-        meta_poly(1, 3) = -5.0;
-        meta_poly(2, 3) = -5.0;
-        meta_poly(3, 3) = -5.0;
-        meta_poly(4, 3) = -5.0;
-        meta_poly(5, 3) = -5.0;
-        const double d_min = 0.3;
+
+        meta_poly(0, 3) = -2.0;
+        meta_poly(1, 3) = -2.0;
+        meta_poly(2, 3) = -2.0;
+        meta_poly(3, 3) = -2.0;
+        meta_poly(4, 3) = -2.0;
+        meta_poly(5, 3) = -2.0;
+        const double d_min = 0.1;
         ROS_INFO("[sfc_gen]: convexCovering...");
         mps_sfc_gen::convexCover(route,
                                 obstacles_,
@@ -400,6 +404,7 @@ class SFCNavigation
                                 meta_poly,
                                 d_min,
                                 hPolys);
+        ROS_INFO("[sfc_gen]: hPolys length: %ld", hPolys.size());
         if (route.size() > 1)
         {
             visualizer_.visualizePolytope(hPolys);
@@ -443,22 +448,23 @@ class SFCNavigation
                 magnitudeBounds,
                 penaltyWeights,
                 physicalParams))
-                {
-                    ROS_WARN("[sfc_Nav]: GCOPTER setup failed!");
-                    return;
-                }
-                if (std::isinf(gcopter.optimize(traj_, config_.relCostTol)))
-                {
-                    return;
-                }
-                if (traj_.getPieceNum() > 0)
-                {
-                    trajStamp_ = ros::Time::now().toSec();
-                    visualizer_.visualize(traj_, route);
-                    trajReady_ = true;
-                    stateControl_ = true;
-                    ROS_INFO("[sfc_Nav]: traj_ generate success!");
-                }
+            {
+                ROS_WARN("[sfc_Nav]: GCOPTER setup failed!");
+                return;
+            }
+            ROS_INFO("[sfc_Nav]: GCOPTER optimizing!");
+            if (std::isinf(gcopter.optimize(traj_, config_.relCostTol)))
+            {
+                return;
+            }
+            if (traj_.getPieceNum() > 0)
+            {
+                trajStamp_ = ros::Time::now().toSec();
+                visualizer_.visualize(traj_, route);
+                trajReady_ = true;
+                stateControl_ = true;
+                ROS_INFO("[sfc_Nav]: traj_ generate success!");
+            }
         }
     }
     public:
@@ -604,11 +610,12 @@ class SFCNavigation
                 posErr(0) = odom_.pose.pose.position.x - pos(0);
                 posErr(1) = odom_.pose.pose.position.y - pos(1);
                 posErr(2) = odom_.pose.pose.position.z - pos(2);
-                std::cout << "[sfc_Nav]: traj_time: " << std::fixed << std::setprecision(3) << delta << " s, "
-                << "Position error: " << posErr.norm() << " m" << std::endl;
+                std::cout << "\r[sfc_Nav]: traj_time: " << std::fixed << std::setprecision(3) << delta << " s, "
+                << "Position error: " << posErr.norm() << " m" << std::flush;
             }
             else if (delta >= traj_.getTotalDuration())
             {
+                std::cout << std::endl;
                 waitForGoal_ = true;
                 trajReady_ = false;
                 ROS_INFO("[sfc_Nav]:Traj finish.");

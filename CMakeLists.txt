@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(sfc_planner)
 
-add_compile_options(-std=c++14)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ## Find catkin and system dependencies
 find_package(catkin REQUIRED COMPONENTS
@@ -13,22 +14,26 @@ find_package(catkin REQUIRED COMPONENTS
   mavros_msgs
   tracking_controller
 )
+
 find_package(Eigen3 REQUIRED)
+find_package(OsqpEigen REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OMPL REQUIRED ompl)
-pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
+pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
-## Declare catkin package
+###################################
+## catkin package declaration    ##
+###################################
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS
-    roscpp
-    std_msgs
-    nav_msgs
-    geometry_msgs
-    sensor_msgs
-    mavros_msgs
-    tracking_controller
+  roscpp
+  std_msgs
+  nav_msgs
+  geometry_msgs
+  sensor_msgs
+  mavros_msgs
+  tracking_controller
 )
 
 ## Include directories
@@ -37,7 +42,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${OMPL_INCLUDE_DIRS}
-  ${YAMLCPP_INCLUDE_DIRS} # Include yaml-cpp headers
+  ${YAML_CPP_INCLUDE_DIRS}
 )
 
 ## Node executable
@@ -55,5 +60,6 @@ add_dependencies(sfc_navigation_node
 target_link_libraries(sfc_navigation_node
   ${catkin_LIBRARIES}
   ${OMPL_LDFLAGS}
-  ${YAMLCPP_LIBRARIES} # Link yaml-cpp library
+  ${YAML_CPP_LIBRARIES}
+  OsqpEigen::OsqpEigen
 )

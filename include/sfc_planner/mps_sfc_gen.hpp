@@ -39,6 +39,8 @@
 #include <memory>
 #include <Eigen/Eigen>
 
+#include "OsqpEigen/OsqpEigen.h"
+
 namespace mps_sfc_gen
 {
 
@@ -135,6 +137,7 @@ namespace mps_sfc_gen
                             std::vector<Eigen::MatrixX4d> &hpolys
                             )
     {
+        OsqpEigen::Solver solver;
         hpolys.clear();
         const int n = path.size();
         // set current position
@@ -233,9 +236,10 @@ namespace mps_sfc_gen
         poly_current.leftCols<3>() = Meta_poly.leftCols<3>();
         poly_current.rightCols<1>() = Meta_poly.rightCols<1>() - Meta_poly.leftCols<3>() * p_current;
         // scale the first polytope
-        mps::scalePolytope(poly_current, d_min, p_current, valid_obstacles);
+        ROS_INFO("scalePolytope()");
+        mps::scalePolytope(poly_current, d_min, p_current, valid_obstacles, solver);
         Eigen::MatrixX3d A_poly = poly_current.leftCols<3>();
-        Eigen::VectorXd b_poly = poly_current.rightCols<1>();
+        Eigen::VectorXd b_poly = -poly_current.rightCols<1>();
         hpolys.push_back(poly_current);
         // generate the rest of the polytopes
         for (path_idx = 1; path_idx < n_path; path_idx++)
@@ -248,17 +252,18 @@ namespace mps_sfc_gen
                     path_idx = i;
                     if (path_idx == n_path - 1)
                     {
-                        ROS_INFO("[SFC_gen]: Goal is inside the polytope. Return SFC.");
+                        ROS_INFO("[sfc_gen]: Goal is inside the polytope. Return SFC.");
                         return;
                     }
                 }
             }
+            std::cout<<"path_idx" << path_idx << "in" << path.size() << std::endl;
             p_current = path[path_idx];
             poly_current.leftCols<3>() = Meta_poly.leftCols<3>();
             poly_current.rightCols<1>() = Meta_poly.rightCols<1>() - Meta_poly.leftCols<3>() * p_current;
-            mps::scalePolytope(poly_current, d_min, p_current, valid_obstacles);
+            mps::scalePolytope(poly_current, d_min, p_current, valid_obstacles, solver);
             A_poly = poly_current.leftCols<3>();
-            b_poly = poly_current.rightCols<1>();
+            b_poly = -poly_current.rightCols<1>();
             hpolys.push_back(poly_current);
         }
     }

@@ -2,83 +2,194 @@
 # define MPS_HPP
 
 # include <Eigen/Eigen>
+#include <Eigen/Sparse>
 # include <iostream>
 # include <vector>
+#include "OsqpEigen/OsqpEigen.h"
 
 namespace mps
 {
+    Eigen::MatrixXd fibonacci_sphere(int num_points) 
+    {
+        std::cout << "fibonacci_sphere()." << std::endl;
+        if (num_points <= 0) 
+        {
+            return Eigen::MatrixXd(0, 3);
+        }
+        Eigen::MatrixXd points(num_points, 3);
+        const double golden_ratio = (1.0 + std::sqrt(5.0)) / 2.0;
+        const double angle_increment = 2.0 * M_PI / golden_ratio;
+        for (int i = 0; i < num_points; ++i) {
+            double y = 1.0 - (2.0 * i) / (num_points - 1.0);
+            double radius = std::sqrt(std::max(0.0, 1.0 - y * y));
+            double theta = i * angle_increment;
+            points(i, 0) = radius * std::cos(theta); // x
+            points(i, 1) = y;                        // y
+            points(i, 2) = radius * std::sin(theta); // z
+        }
+        return points;
+    }
+
+
     // Check if the polytope is feasible for the given obstacles and minimum distance requirement
+    // Obstacles in the same shape (box)
     inline bool check_polytope_feasibility(
         const Eigen::MatrixX3d A,
-        Eigen::VectorXd b, // polytope in H-rep (Ax<=b) format: [A -b]
-        const std::vector<Eigen::MatrixX4d> &obstacles,
-        const double &d_min) // minimum distance requirement
+        const Eigen::VectorXd b, // polytope in H-rep (Ax<=b) format: [A -b]
+        const std::vector<Eigen::MatrixX4d> &obstacles, // [O -o] list
+        const double &d_min,
+        OsqpEigen::Solver &solver) // minimum distance requirement
     {
-        int max_iter = 50;
-        double tol = 1.0e-6;
-        const int m_p = A.rows();
-        const int dim = 3;
-        // Precompute AAt and its inverse if possible (shared across obstacles)
-        Eigen::MatrixXd AAt = A * A.transpose();
-        Eigen::FullPivLU<Eigen::MatrixXd> lu_AAt(AAt);
-        bool AAt_invertible = lu_AAt.isInvertible();
-        Eigen::MatrixXd AAt_inv;
-        if (AAt_invertible) {
-            AAt_inv = lu_AAt.inverse();
-        }
-        else {
-            std::cout << "AAt is not invertible" << std::endl;
-            return false;
-        }
-        for (const auto &obs : obstacles) {
-            Eigen::MatrixX3d O = obs.leftCols(3);
-            Eigen::VectorXd o = -obs.col(3);
-            const int m_o = O.rows();
-            // --- Solve dual feasibility for this obstacle ---
-            // mu = M * lambda, where M = -(A A^T)^{-1} A O^T
-            Eigen::MatrixXd M = -AAt_inv * A * O.transpose(); // (m_p x m_o)
-            Eigen::VectorXd c = -o - b.transpose() * M;       // (m_o), want c^T lambda >= d_min
-            Eigen::VectorXd lambda = Eigen::VectorXd::Zero(m_o);
-            bool feasible = false;
-            for (int iter = 0; iter < max_iter; ++iter) {
-                double obj = c.dot(lambda);
-                Eigen::VectorXd mu = M * lambda;
-                double norm_z = (O.transpose() * lambda).norm();
-                // Check all dual feasibility conditions
-                if (obj >= d_min - tol &&
-                    (mu.array() >= -tol).all() &&
-                    (lambda.array() >= -tol).all() &&
-                    norm_z <= 1.0 + tol) {
-                    feasible = true;
-                    break;
+    
+        // initialize the solver
+        // objective: 0
+        // variables: lambda, mu, i.e., x = [lambda; mu]
+        // s.t. 
+        // lambda >= 0
+        // mu >= 0
+        // -b^T *mu - o^T *lambda >= d_min
+        // A^T *mu + O^T *lambda = 0
+        // (O* v_k) * lambda <= 1 , k = 1, ..., N_k
+        std::cout << "check_polytope_feasibility()." << std::endl;
+        // solver.settings()->setWarmStart(true);
+        solver.clearSolver();
+        int m_A = A.rows();
+        int n_mu = A.rows();
+        int m_O = 6;
+        int n_lambda = 6;
+        int dim = n_lambda + n_mu; 
+        int n_v = 20;
+        int n_constraints = 0;
+        Eigen::MatrixXd V(n_v, 3);
+        V = fibonacci_sphere(n_v);
+        // if m_O fixed.
+        dim = m_A + m_O;
+        solver.data()->setNumberOfVariables(dim);
+        // cost function: 0
+        Eigen::SparseMatrix<double> hessian(dim, dim);
+        Eigen::VectorXd gradient = Eigen::VectorXd::Zero(dim);
+        n_constraints = m_O + m_A + 1 + 3 + n_v;
+        // Set the l <= A_c*x <= u
+        Eigen::SparseMatrix<double> linearMatrix(n_constraints, dim);
+        Eigen::VectorXd lowerBound = Eigen::VectorXd::Constant(n_constraints, -1.0e9);
+        Eigen::VectorXd upperBound = Eigen::VectorXd::Constant(n_constraints, 1.0e9);
+        std::vector<Eigen::Triplet<double>> tripletList;
+        solver.data()->setHessianMatrix(hessian);
+        solver.data()->setGradient(gradient);
+        solver.data()->setNumberOfConstraints(n_constraints);
+        // solver.data()->setLinearConstraintsMatrix(linearMatrix);
+        // solver.data()->setLowerBound(lowerBound);
+        // solver.data()->setUpperBound(upperBound);
+        std::cout << "check_loop." << std::endl;
+        // for every obstacle
+        for (int i = 0; i < obstacles.size(); i++)
+        {
+            Eigen::MatrixXd O = obstacles[i].leftCols<3>();
+            Eigen::VectorXd o = - obstacles[i].rightCols<1>();
+            if (i == 0)
+            {
+                int row = 0;
+                // (1) lambda >= 0
+                for (int i = 0; i < n_lambda; ++i) 
+                {
+                    tripletList.emplace_back(row++, i, 1.0); // x[i] >= 0
                 }
-    
-                // Gradient ascent on c^T lambda
-                double step = 0.2 / std::sqrt(iter + 1);
-                lambda += step * c;
-                lambda = lambda.cwiseMax(0.0); // lambda >= 0
-    
-                // Enforce mu >= 0 approximately
-                mu = M * lambda;
-                for (int j = 0; j < m_p; ++j) {
-                    if (mu(j) < 0) {
-                        // Project back by reducing components that cause violation
-                        lambda -= 0.05 * mu(j) * M.row(j).transpose();
-                        lambda = lambda.cwiseMax(0.0);
+                // (2) mu >= 0
+                for (int i = 0; i < n_mu; ++i) 
+                {
+                    tripletList.emplace_back(row++, n_lambda + i, 1.0); // x[i] >= 0
+                }
+                // (3) -o^T lambda - b^T mu >= d_min
+                for (int i = 0; i < n_lambda; ++i) {
+                    tripletList.emplace_back(row, i, -o(i));
+                }
+                for (int i = 0; i < n_mu; ++i) {
+                    tripletList.emplace_back(row, n_lambda + i, -b(i));
+                }
+                row++;
+                // (4) A^T *mu + O^T *lambda = 0
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 0; j < n_lambda; ++j) {
+                        tripletList.emplace_back(row, j, O.coeff(j, i));
                     }
+                    for (int j = 0; j < n_mu; ++j) {
+                        tripletList.emplace_back(row, n_lambda + j, A.coeff(j, i));
+                    }
+                    row++;
                 }
-    
-                // Project onto ||O^T lambda||_2 <= 1
-                double nz = (O.transpose() * lambda).norm();
-                if (nz > 1.0) {
-                    lambda *= (1.0 / nz);
+                // (5) (O* v_k)^T * lambda <= 1 , k = 1, ..., n_v
+                for (int k = 0; k < n_v; ++k) {
+                    Eigen::VectorXd w = O * V.row(k).transpose();
+                    for (int i = 0; i < n_lambda; ++i) {
+                        tripletList.emplace_back(row, i, w(i));
+                    }
+                    row++;
                 }
-            } // end for iter
-            if (!feasible) {
-                return false; // Collision or too close to this obstacle
+                linearMatrix.setFromTriplets(tripletList.begin(), tripletList.end());
+                // set the lower and upper bounds
+                int idx = 0;
+                // (1) lambda >= 0
+                lowerBound.segment(row, n_lambda).setZero();
+                idx += n_lambda;
+                // (2) mu >= 0
+                lowerBound.segment(idx, n_mu).setZero();
+                idx += n_mu;
+                // (3) >= d_min
+                lowerBound(idx) = d_min;
+                idx++;
+                // (4)  = 0
+                lowerBound.segment(idx, 3).setZero();
+                upperBound.segment(idx, 3).setZero();
+                idx += 3;
+                // (5) (O v_k)^T lambda <= 1
+                upperBound.segment(idx, n_v).setOnes();
+                // idx += n_v;
+                solver.data()->setLinearConstraintsMatrix(linearMatrix);
+                solver.data()->setLowerBound(lowerBound);
+                solver.data()->setUpperBound(upperBound);
+                solver.initSolver();
+                std::cout << "solver.initSolver()." << std::endl;
             }
-        } // end for all obstacles
-        return true; // Safe from all obstacles
+            else
+            {
+                tripletList.clear();
+                int row = n_lambda + n_mu;
+                // (3) -o^T lambda - b^T mu >= d_min
+                for (int i = 0; i < n_lambda; ++i) {
+                    tripletList.emplace_back(row, i, -o(i));
+                }
+                for (int i = 0; i < n_mu; ++i) {
+                    tripletList.emplace_back(row, n_lambda + i, -b(i));
+                }
+                row++;
+                // (4) A^T *mu + O^T *lambda = 0
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 0; j < n_lambda; ++j) {
+                        tripletList.emplace_back(row, j, O.coeff(j, i));
+                    }
+                    for (int j = 0; j < n_mu; ++j) {
+                        tripletList.emplace_back(row, n_lambda + j, A.coeff(j, i));
+                    }
+                    row++;
+                }
+                // (5) (O* v_k)^T * lambda <= 1 , k = 1, ..., n_v
+                for (int k = 0; k < n_v; ++k) {
+                    Eigen::VectorXd w = O * V.row(k).transpose();
+                    for (int i = 0; i < n_lambda; ++i) {
+                        tripletList.emplace_back(row, i, w(i));
+                    }
+                    row++;
+                }
+                linearMatrix.setFromTriplets(tripletList.begin(), tripletList.end());
+                solver.updateLinearConstraintsMatrix(linearMatrix);
+                std::cout << "solver.updateLinearConstraintsMatrix()." << std::endl;
+            }
+            if (solver.solveProblem() != OsqpEigen::ErrorExitFlag::NoError)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
 
@@ -87,12 +198,14 @@ namespace mps
         const double &d_min, 
         const Eigen::Vector3d &p_current, 
         const std::vector<Eigen::MatrixX4d> &obstacles,
-        const double tol = 1.0e-6)
+        OsqpEigen::Solver &solver,
+        const double tol = 1.0e-6
+        )
         {
             Eigen::MatrixX3d A_c;
             Eigen::VectorXd b_c;
             Eigen::MatrixX3d Y_m = meta_polytope.leftCols<3>();
-            Eigen::VectorXd y_m = -meta_polytope.rightCols<1>();
+            Eigen::VectorXd y_m = - meta_polytope.rightCols<1>();
             double alpha_low = 0.0;
             double alpha_high = 1.0;
             double alpha_mid;
@@ -101,7 +214,7 @@ namespace mps
                 alpha_mid = (alpha_low + alpha_high) / 2.0;
                 A_c = Y_m;
                 b_c = alpha_mid * y_m + Y_m * (1.0 - alpha_mid) * p_current;
-                if (check_polytope_feasibility(A_c, b_c, obstacles, d_min))
+                if (check_polytope_feasibility(A_c, b_c, obstacles, d_min, solver))
                 {
                     alpha_low = alpha_mid;
                 }
@@ -110,7 +223,8 @@ namespace mps
                     alpha_high = alpha_mid;
                 }
             }
-            meta_polytope.rightCols<1>() = alpha_low * y_m + Y_m * (1.0 - alpha_low) * p_current;
+            // set new b
+            meta_polytope.rightCols<1>() = -(alpha_low * y_m + Y_m * (1.0 - alpha_low) * p_current);
         }
 } 
 
