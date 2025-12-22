@@ -47,11 +47,12 @@ namespace mps
         // s.t. 
         // lambda >= 0
         // mu >= 0
-        // -b^T *mu - o^T *lambda >= d_min
-        // A^T *mu + O^T *lambda = 0
-        // (O* v_k) * lambda <= 1 , k = 1, ..., N_k
+        // - o^T *lambda -b^T *mu >= d_min
+        //  O^T *lambda + A^T *mu = 0
+        // (O* v_k)^T * lambda <= 1 , k = 1, ..., N_k
         std::cout << "check_polytope_feasibility()." << std::endl;
         // solver.settings()->setWarmStart(true);
+        static bool first_call = true;
         solver.clearSolver();
         int m_A = A.rows();
         int n_mu = A.rows();
@@ -74,9 +75,13 @@ namespace mps
         Eigen::VectorXd lowerBound = Eigen::VectorXd::Constant(n_constraints, -1.0e9);
         Eigen::VectorXd upperBound = Eigen::VectorXd::Constant(n_constraints, 1.0e9);
         std::vector<Eigen::Triplet<double>> tripletList;
-        solver.data()->setHessianMatrix(hessian);
-        solver.data()->setGradient(gradient);
-        solver.data()->setNumberOfConstraints(n_constraints);
+        if (first_call)
+        {
+            first_call = false;
+            solver.data()->setHessianMatrix(hessian);
+            solver.data()->setGradient(gradient);
+            solver.data()->setNumberOfConstraints(n_constraints);
+        }
         // solver.data()->setLinearConstraintsMatrix(linearMatrix);
         // solver.data()->setLowerBound(lowerBound);
         // solver.data()->setUpperBound(upperBound);
@@ -119,17 +124,18 @@ namespace mps
                 }
                 // (5) (O* v_k)^T * lambda <= 1 , k = 1, ..., n_v
                 for (int k = 0; k < n_v; ++k) {
-                    Eigen::VectorXd w = O * V.row(k).transpose();
+                    Eigen::VectorXd w = O * V.row(k).transpose(); // n_lambda x 1
                     for (int i = 0; i < n_lambda; ++i) {
                         tripletList.emplace_back(row, i, w(i));
                     }
                     row++;
                 }
+                std::cout << "linearMatrix.setFromTriplets()." << std::endl;
                 linearMatrix.setFromTriplets(tripletList.begin(), tripletList.end());
                 // set the lower and upper bounds
                 int idx = 0;
                 // (1) lambda >= 0
-                lowerBound.segment(row, n_lambda).setZero();
+                lowerBound.segment(idx, n_lambda).setZero();
                 idx += n_lambda;
                 // (2) mu >= 0
                 lowerBound.segment(idx, n_mu).setZero();
@@ -144,6 +150,7 @@ namespace mps
                 // (5) (O v_k)^T lambda <= 1
                 upperBound.segment(idx, n_v).setOnes();
                 // idx += n_v;
+                solver.data()->clearLinearConstraintsMatrix();
                 solver.data()->setLinearConstraintsMatrix(linearMatrix);
                 solver.data()->setLowerBound(lowerBound);
                 solver.data()->setUpperBound(upperBound);
@@ -212,6 +219,7 @@ namespace mps
             while (alpha_high - alpha_low > tol)
             {
                 alpha_mid = (alpha_low + alpha_high) / 2.0;
+                std::cout << "alpha:" << alpha_mid << std::endl;
                 A_c = Y_m;
                 b_c = alpha_mid * y_m + Y_m * (1.0 - alpha_mid) * p_current;
                 if (check_polytope_feasibility(A_c, b_c, obstacles, d_min, solver))
@@ -224,6 +232,7 @@ namespace mps
                 }
             }
             // set new b
+            std::cout << "alpha_opt:" << alpha_low << std::endl;
             meta_polytope.rightCols<1>() = -(alpha_low * y_m + Y_m * (1.0 - alpha_low) * p_current);
         }
 } 
