@@ -395,7 +395,7 @@ class SFCNavigation
         meta_poly(3, 3) = -2.0;
         meta_poly(4, 3) = -2.0;
         meta_poly(5, 3) = -2.0;
-        const double d_min = 0.05;
+        const double d_min = 0.00;
         ROS_INFO("[sfc_gen]: convexCovering...");
         mps_sfc_gen::convexCover(route,
                                 obstacles_,
