@@ -395,7 +395,7 @@ class SFCNavigation
         meta_poly(3, 3) = -2.0;
         meta_poly(4, 3) = -2.0;
         meta_poly(5, 3) = -2.0;
-        const double d_min = 0.1;
+        const double d_min = 0.05;
         ROS_INFO("[sfc_gen]: convexCovering...");
         mps_sfc_gen::convexCover(route,
                                 obstacles_,
@@ -407,7 +407,6 @@ class SFCNavigation
         ROS_INFO("[sfc_gen]: hPolys length: %ld", hPolys.size());
         if (route.size() > 1)
         {
-            visualizer_.visualizePolytope(hPolys);
             Eigen::Matrix3d iniState;
             Eigen::Matrix3d finState;
             iniState << route.front(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(); // position, velocity, acceleration
@@ -450,16 +449,19 @@ class SFCNavigation
                 physicalParams))
             {
                 ROS_WARN("[sfc_Nav]: GCOPTER setup failed!");
+                waitForGoal_ = true;
                 return;
             }
             ROS_INFO("[sfc_Nav]: GCOPTER optimizing!");
             if (std::isinf(gcopter.optimize(traj_, config_.relCostTol)))
             {
+                waitForGoal_ = true;
                 return;
             }
             if (traj_.getPieceNum() > 0)
             {
                 trajStamp_ = ros::Time::now().toSec();
+                visualizer_.visualizePolytope(hPolys);
                 visualizer_.visualize(traj_, route);
                 trajReady_ = true;
                 stateControl_ = true;
