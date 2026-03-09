@@ -5,7 +5,7 @@ It consumes a voxel map, generates SFCs and trajectories, and sends targets to a
 
 ### Demo Video
 
-[![Demo Video](https://img.youtube.com/vi/VIDEO_ID/0.jpg)](assets/sfc-planning.mp4)
+[![Demo Video](assets/sfc-planning.png)](assets/sfc-planning.mp4)
 
 > ▶️ [Watch a quick demo of sfc_planner](assets/sfc-planning.mp4)
 
