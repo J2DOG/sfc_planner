@@ -3,8 +3,16 @@
 `sfc_planner` is a ROS 1 package for global planning and navigation of a UAV based on Safe Flight Corridors (SFCs).  
 It consumes a voxel map, generates SFCs and trajectories, and sends targets to a low‑level `tracking_controller`, which in turn drives PX4.
 
-Below is a **minimal step‑by‑step guide to go from zero to a running demo**.
+### Demo Video
 
+[![Demo Video](https://img.youtube.com/vi/VIDEO_ID/0.jpg)](assets/sfc-planning.mp4)
+
+> ▶️ [Watch a quick demo of sfc_planner](assets/sfc-planning.mp4)
+
+If your Markdown viewer does not support embedded videos, download and play [assets/sfc-planning.mp4](assets/sfc-planning.mp4) locally.
+
+
+Below is a **minimal step‑by‑step guide to go from zero to a running demo**.
 ---
 
 ### 0. quick start in 3 mins
