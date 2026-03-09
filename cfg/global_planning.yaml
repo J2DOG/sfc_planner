@@ -11,7 +11,7 @@ voxel_width:   0.25
 map_bound: [-10.0, 10.0, -10.0, 10.0, 0.0, 5.0]  # [x_min, x_max, y_min, y_max, z_min, z_max]
 dilate_radius: 1
 # Flight settings
-des_height:    1.0 # (m)
+des_height:    2.5 # (m)
 # Planning parameters
 timeout_rrt:  0.1 # (s)
 

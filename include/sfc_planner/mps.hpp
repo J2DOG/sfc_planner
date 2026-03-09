@@ -427,7 +427,6 @@ namespace mps
         const double &d_min, 
         const Eigen::Vector3d &p_current, 
         const std::vector<Eigen::MatrixX4d> &obstacles,
-        OsqpEigen::Solver &solver,
         const double tol = 1.0e-6
         )
         {
@@ -443,10 +442,9 @@ namespace mps
             while (alpha_high - alpha_low > tol)
             {
                 alpha_mid = (alpha_low + alpha_high) / 2.0;
-                std::cout << "alpha:" << alpha_mid << std::endl;
                 A_c = Y_m;
                 b_c = alpha_mid * y_m + Y_m * (1.0 - alpha_mid) * p_current;
-                if (check_polytope_feasibility(A_c, b_c, obstacles, d_min))
+                if ( check_polytope_feasibility(A_c, b_c, obstacles, d_min) )
                 {
                     alpha_low = alpha_mid;
                 }
@@ -458,6 +456,32 @@ namespace mps
             // set new b
             std::cout << "alpha_opt:" << alpha_low << std::endl;
             meta_polytope.rightCols<1>() = -(alpha_low * y_m + Y_m * (1.0 - alpha_low) * p_current);
+            // target direction expansion
+            // 1
+            double beta_low = 0.0;
+            double beta_high = 10.0; // (m)
+            double beta_mid;
+            Eigen::VectorXd b_add = Eigen::VectorXd::Zero(b_c.size());
+
+            while (beta_high - beta_low > 0.01)
+            {
+                beta_mid = (beta_high + beta_low)/ 2.0;
+                b_add[0] = beta_mid; 
+                A_c = Y_m;
+                b_c = - meta_polytope.rightCols<1>() + b_add;
+                if ( check_polytope_feasibility(A_c, b_c, obstacles, 0.01) )// check_polytope_feasibility(A_c, b_c, obstacles, d_min)
+                {
+                    beta_low = beta_mid;
+                }
+                else
+                {
+                    beta_high = beta_mid;
+                }
+            }
+            std::cout << "beta_opt:" << beta_low << std::endl;
+            b_add[0] = beta_low; 
+            b_c = - meta_polytope.rightCols<1>() + b_add;
+            meta_polytope.rightCols<1>() = - b_c;
         }
 } 
 

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(sfc_planner)
 
+# Let clangd/IDE use compile_commands.json for includes and flags
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
